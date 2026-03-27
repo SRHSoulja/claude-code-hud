@@ -83,34 +83,33 @@ The snapshot contains the same rate limit values shown by `/usage`, plus context
 - **`7d` seems stale:** Claude Code refreshes rate limit data periodically, not on every render. It may lag a few minutes behind the claude.ai app.
 - **HUD does not appear after adding to settings.json:** Start a new Claude Code session. The `statusLine` config is read on session start.
 
-## Windows setup (experimental)
+## Windows setup
 
-A `.cmd` launcher is included for native Windows. Place both files in the same directory:
+Claude Code on Windows runs statusline commands through bash (Git Bash). Use POSIX-style paths and call `python` directly (not a `.cmd` wrapper):
 
 ```powershell
 mkdir "$env:USERPROFILE\.claude\claude-code-hud" -Force
 curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/claude-code-hud -o "$env:USERPROFILE\.claude\claude-code-hud\claude-code-hud"
-curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/claude-code-hud.cmd -o "$env:USERPROFILE\.claude\claude-code-hud\claude-code-hud.cmd"
 ```
 
-Then add to `~/.claude/settings.json` (use backslashes):
+Then add to `~/.claude/settings.json` using a POSIX-style path:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "C:\\Users\\YourName\\.claude\\claude-code-hud\\claude-code-hud.cmd"
+    "command": "python /c/Users/YourName/.claude/claude-code-hud/claude-code-hud"
   }
 }
 ```
 
-Replace `YourName` with your Windows username. Requires Python on PATH (`python`, not `python3`).
+Replace `YourName` with your Windows username. Requires Python on PATH.
 
 ## Compatibility
 
 - **macOS / Linux:** Works as shown in Quick install.
 - **WSL:** Same macOS/Linux instructions work if Claude Code runs inside WSL.
-- **Native Windows:** Experimental. A `.cmd` launcher and setup path are included (see above), but live rendering in a native Windows Claude Code session has not been fully verified yet. The script itself runs correctly on Windows Python. If you get it working or find issues, PRs welcome.
+- **Native Windows:** Setup path provided. Claude Code runs statusline commands through bash, so use POSIX-style paths and call `python` directly (see Windows setup above). Verification pending — if you confirm it works or find issues, PRs welcome.
 - Python 3.6+ (no external dependencies).
 - Claude Code v2.1+ (statusline support).
 
