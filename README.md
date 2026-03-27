@@ -83,11 +83,34 @@ The snapshot contains the same rate limit values shown by `/usage`, plus context
 - **`7d` seems stale:** Claude Code refreshes rate limit data periodically, not on every render. It may lag a few minutes behind the claude.ai app.
 - **HUD does not appear after adding to settings.json:** Start a new Claude Code session. The `statusLine` config is read on session start.
 
+## Windows setup
+
+A `.cmd` launcher is included for native Windows. Place both files in the same directory:
+
+```powershell
+mkdir "$env:USERPROFILE\.claude\claude-code-hud" -Force
+curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/claude-code-hud -o "$env:USERPROFILE\.claude\claude-code-hud\claude-code-hud"
+curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/claude-code-hud.cmd -o "$env:USERPROFILE\.claude\claude-code-hud\claude-code-hud.cmd"
+```
+
+Then add to `~/.claude/settings.json` (use backslashes):
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "C:\\Users\\YourName\\.claude\\claude-code-hud\\claude-code-hud.cmd"
+  }
+}
+```
+
+Replace `YourName` with your Windows username. Requires Python on PATH (`python`, not `python3`).
+
 ## Compatibility
 
-- **macOS / Linux:** Works as shown.
-- **WSL:** Same instructions work if Claude Code is running inside WSL.
-- **Native Windows:** Not tested. May require a Windows-style path and/or a wrapper script. If you get it working, PRs welcome.
+- **macOS / Linux:** Works as shown in Quick install.
+- **WSL:** Same macOS/Linux instructions work if Claude Code runs inside WSL.
+- **Native Windows:** Works with the included `.cmd` launcher (see Windows setup above). Requires Python on PATH.
 - Python 3.6+ (no external dependencies).
 - Claude Code v2.1+ (statusline support).
 
