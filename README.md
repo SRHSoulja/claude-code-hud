@@ -83,33 +83,35 @@ The snapshot contains the same rate limit values shown by `/usage`, plus context
 - **`7d` seems stale:** Claude Code refreshes rate limit data periodically, not on every render. It may lag a few minutes behind the claude.ai app.
 - **HUD does not appear after adding to settings.json:** Start a new Claude Code session. The `statusLine` config is read on session start.
 
-## Windows setup
+## Windows setup (provisional)
 
-Claude Code on Windows runs statusline commands through bash (Git Bash). Use POSIX-style paths and call `python` directly (not a `.cmd` wrapper):
+Claude Code appears to run statusline commands through bash on all platforms. On native Windows, this means using `python` directly with a bash-resolvable path (not a `.cmd` wrapper or Windows backslash path).
+
+**Install the script:**
 
 ```powershell
 mkdir "$env:USERPROFILE\.claude\claude-code-hud" -Force
 curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/claude-code-hud -o "$env:USERPROFILE\.claude\claude-code-hud\claude-code-hud"
 ```
 
-Then add to `~/.claude/settings.json` using a POSIX-style path:
+**Add to `~/.claude/settings.json`:**
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "python /c/Users/YourName/.claude/claude-code-hud/claude-code-hud"
+    "command": "python ~/.claude/claude-code-hud/claude-code-hud"
   }
 }
 ```
 
-Replace `YourName` with your Windows username. Requires Python on PATH.
+Requires Python on PATH. This setup has not yet been confirmed in a live native Windows Claude Code session. If you verify it works or find issues, PRs welcome.
 
 ## Compatibility
 
 - **macOS / Linux:** Works as shown in Quick install.
 - **WSL:** Same macOS/Linux instructions work if Claude Code runs inside WSL.
-- **Native Windows:** Setup path provided. Claude Code runs statusline commands through bash, so use POSIX-style paths and call `python` directly (see Windows setup above). Verification pending — if you confirm it works or find issues, PRs welcome.
+- **Native Windows:** Provisional. Setup path provided (see above), but live rendering has not been confirmed yet. If you verify it works, PRs welcome.
 - Python 3.6+ (no external dependencies).
 - Claude Code v2.1+ (statusline support).
 
