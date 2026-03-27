@@ -7,7 +7,7 @@ Session pressure, weekly quota, context window, and cost estimate, all visible i
 ![Claude Code HUD](claude-code-hud-statusline.png)
 
 ```
-5h:34%(2h14m) | 7d:4%(4d11h) | ctx:57% | $160.16
+5h:41%(3h16m) | 7d:4%(6d10h) | ctx:61% | $181.22
 ```
 
 ## What each field means
