@@ -110,7 +110,7 @@ Requires Python on PATH.
 
 ## Compatibility
 
-- **macOS / Linux:** Works as shown in Quick install.
+- **Linux / macOS:** Works as shown in Quick install (verified on Linux; macOS expected to work the same).
 - **WSL:** Same macOS/Linux instructions work if Claude Code runs inside WSL.
 - **Native Windows:** Works. Requires Python on PATH and bash-style command (see Windows setup above).
 - Python 3.6+ (no external dependencies).
