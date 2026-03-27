@@ -26,6 +26,7 @@ The countdown in parentheses (e.g. `3h16m`, `6d10h`) shows time until that usage
 - `7d` may lag slightly behind the claude.ai app because Claude Code refreshes rate limit data periodically, not on every render. The countdown is computed locally from the last-received reset timestamp.
 - `ctx` and `$` are computed locally by Claude Code and update in real time on every turn. They are runtime values, not Anthropic-authoritative.
 - `$` shows what the session would cost at API rates. If you are on a Pro or Max subscription, you are not billed this amount.
+- On startup, `ctx` and `$` may not appear until the first real API turn. `5h` and `7d` may appear before them. This is normal.
 
 ## Install
 
@@ -83,9 +84,9 @@ The snapshot contains the same rate limit values shown by `/usage`, plus context
 - **`7d` seems stale:** Claude Code refreshes rate limit data periodically, not on every render. It may lag a few minutes behind the claude.ai app.
 - **HUD does not appear after adding to settings.json:** Start a new Claude Code session. The `statusLine` config is read on session start.
 
-## Windows setup (provisional)
+## Windows setup
 
-Claude Code appears to run statusline commands through bash on all platforms. On native Windows, this means using `python` directly with a bash-resolvable path (not a `.cmd` wrapper or Windows backslash path).
+Claude Code runs statusline commands through bash on all platforms. On native Windows, use `python` directly with a bash-resolvable path:
 
 **Install the script:**
 
@@ -105,13 +106,13 @@ curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/cl
 }
 ```
 
-Requires Python on PATH. This setup has not yet been confirmed in a live native Windows Claude Code session. If you verify it works or find issues, PRs welcome.
+Requires Python on PATH.
 
 ## Compatibility
 
 - **macOS / Linux:** Works as shown in Quick install.
 - **WSL:** Same macOS/Linux instructions work if Claude Code runs inside WSL.
-- **Native Windows:** Provisional. Setup path provided (see above), but live rendering has not been confirmed yet. If you verify it works, PRs welcome.
+- **Native Windows:** Works. Requires Python on PATH and bash-style command (see Windows setup above).
 - Python 3.6+ (no external dependencies).
 - Claude Code v2.1+ (statusline support).
 
