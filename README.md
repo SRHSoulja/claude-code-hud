@@ -19,7 +19,7 @@ Session pressure, weekly quota, context window, and cost estimate, all visible i
 | `ctx` | Context window usage (how full the conversation memory is) | Claude Code runtime (local) |
 | `$` | Equivalent API cost estimate for this session (not an invoice) | Claude Code runtime (local) |
 
-The countdown in parentheses (e.g. `2h14m`, `4d11h`) shows time until that usage window resets. It disappears if the reset time is unavailable or already passed.
+The countdown in parentheses (e.g. `3h16m`, `6d10h`) shows time until that usage window resets. It disappears if the reset time is unavailable or already passed.
 
 **Notes:**
 - `5h` and `7d` are Anthropic-authoritative plan-limit values fetched from Anthropic's usage API by Claude Code. These are real quota consumption numbers, not estimates. Only available on Pro/Max plans.
@@ -27,34 +27,32 @@ The countdown in parentheses (e.g. `2h14m`, `4d11h`) shows time until that usage
 - `ctx` and `$` are computed locally by Claude Code and update in real time on every turn. They are runtime values, not Anthropic-authoritative.
 - `$` shows what the session would cost at API rates. If you are on a Pro or Max subscription, you are not billed this amount.
 
-## Setup
+## Install
 
-### 1. Save the script
-
-Clone this repo or copy the `claude-code-hud` script to any location on your machine:
+### Quick install
 
 ```bash
-chmod +x claude-code-hud
+mkdir -p ~/.claude
+curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/claude-code-hud -o ~/.claude/claude-code-hud
+chmod +x ~/.claude/claude-code-hud
 ```
 
-### 2. Configure Claude Code
-
-Add to `~/.claude/settings.json`:
+Then add to `~/.claude/settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "/absolute/path/to/claude-code-hud"
+    "command": "~/.claude/claude-code-hud"
   }
 }
 ```
 
-Replace `/absolute/path/to/claude-code-hud` with the real absolute path where the script lives on your machine.
+Restart Claude Code. The HUD appears on the next session start.
 
-### 3. Restart Claude Code
+### Manual install
 
-The statusline activates on the next session start.
+Clone this repo or copy the `claude-code-hud` script to any location on your machine. Make it executable with `chmod +x`. Then add the `statusLine` config above, replacing the command path with the real absolute path to wherever you saved the script.
 
 ## Optional: JSON snapshot
 
@@ -71,18 +69,26 @@ Or add it to your Claude Code env settings:
 ```json
 {
   "env": {
-    "CLAUDE_HUD_SNAPSHOT": "/absolute/path/to/usage-snapshot.json"
+    "CLAUDE_HUD_SNAPSHOT": "~/.claude/usage-snapshot.json"
   }
 }
 ```
 
 The snapshot contains the same rate limit values shown by `/usage`, plus context window state and session cost.
 
-## Requirements
+## Troubleshooting
 
-- Claude Code v2.1+ (statusline support)
-- Python 3.6+
-- Claude Pro or Max plan (for `5h` and `7d` fields; `ctx` and `$` work on any plan)
+- **Nothing appears:** Verify the script path in `settings.json` is correct and the file is executable (`chmod +x`).
+- **No `5h` or `7d`:** These only appear on Pro/Max subscription plans. `ctx` and `$` work on any plan.
+- **`7d` seems stale:** Claude Code refreshes rate limit data periodically, not on every render. It may lag a few minutes behind the claude.ai app.
+- **HUD does not update after editing settings.json:** Restart Claude Code. The statusline config is read on session start.
+
+## Compatibility
+
+- Tested on macOS and Linux (bash/zsh).
+- Windows users should run Claude Code inside WSL, or adapt the script path for their environment.
+- Requires Python 3.6+ (no external dependencies).
+- Requires Claude Code v2.1+ (statusline support).
 
 ## License
 
