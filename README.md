@@ -57,7 +57,11 @@ Clone this repo or copy the `claude-code-hud` script to any location on your mac
 
 ## Optional: JSON snapshot
 
-The HUD can write a JSON snapshot of usage data to disk on every update, so other scripts or tools can read it.
+The statusline is for humans. The snapshot is for scripts. It writes a machine-readable JSON file on every statusline update so your own tools can read current usage state without parsing terminal output.
+
+Examples of what you could build on it:
+- A script that warns you when `5h` crosses 80%
+- A dashboard that tracks usage across sessions over time
 
 Set the `CLAUDE_HUD_SNAPSHOT` environment variable:
 
@@ -75,7 +79,19 @@ Or add it to your Claude Code env settings:
 }
 ```
 
-The snapshot contains the same rate limit values shown by `/usage`, plus context window state and session cost.
+The snapshot looks like this:
+
+```json
+{
+  "source": "claude-code-hud",
+  "captured_at": "2026-03-27T16:00:31+00:00",
+  "rate_limits": {
+    "five_hour": { "used_percentage": 34, "resets_at": 1743123456 },
+    "seven_day": { "used_percentage": 4, "resets_at": 1743654321 }
+  },
+  "context_window": { "used_percentage": 57 },
+  "cost": { "total_cost_usd": 160.16 }
+}
 
 ## Troubleshooting
 
