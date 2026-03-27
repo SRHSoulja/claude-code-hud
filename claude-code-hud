@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""
+Claude Code statusline HUD — live usage metrics in your terminal.
+
+Receives JSON on stdin from Claude Code's statusline system.
+Displays: session usage, weekly quota, context window, session cost.
+Optionally writes a JSON snapshot to disk for other tools to read.
+
+No dependencies beyond Python 3.6+.
+"""
+
+import json
+import sys
+import os
+from datetime import datetime, timezone
+
+# Optional: write a JSON snapshot for other tools to consume.
+# Set CLAUDE_HUD_SNAPSHOT to an absolute path to enable.
+# Example: export CLAUDE_HUD_SNAPSHOT=~/.claude/usage-snapshot.json
+SNAPSHOT_FILE = os.environ.get("CLAUDE_HUD_SNAPSHOT", "")
+if SNAPSHOT_FILE:
+    SNAPSHOT_FILE = os.path.expanduser(SNAPSHOT_FILE)
+
+
+def main():
+    try:
+        raw = sys.stdin.read()
+        if not raw.strip():
+            print("")
+            return
+        data = json.loads(raw)
+    except (json.JSONDecodeError, Exception):
+        print("")
+        return
+
+    # Extract rate limits (Anthropic-authoritative, Pro/Max plans only)
+    rate = data.get("rate_limits", {})
+    five_h = rate.get("five_hour", {})
+    seven_d = rate.get("seven_day", {})
+
+    # Extract context window and cost
+    ctx = data.get("context_window", {})
+    cost = data.get("cost", {})
+
+    # Write snapshot if configured
+    if SNAPSHOT_FILE:
+        snapshot = {
+            "source": "claude-code-hud",
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "session_id": data.get("session_id", ""),
+            "model": data.get("model", {}).get("id", ""),
+            "rate_limits": {
+                "five_hour": {
+                    "used_percentage": five_h.get("used_percentage"),
+                    "resets_at": five_h.get("resets_at"),
+                } if five_h else None,
+                "seven_day": {
+                    "used_percentage": seven_d.get("used_percentage"),
+                    "resets_at": seven_d.get("resets_at"),
+                } if seven_d else None,
+            },
+            "context_window": {
+                "used_percentage": ctx.get("used_percentage"),
+                "total_input_tokens": ctx.get("total_input_tokens"),
+                "total_output_tokens": ctx.get("total_output_tokens"),
+                "context_window_size": ctx.get("context_window_size"),
+            },
+            "cost": {
+                "total_cost_usd": cost.get("total_cost_usd"),
+                "total_duration_ms": cost.get("total_duration_ms"),
+            },
+        }
+        try:
+            tmp = SNAPSHOT_FILE + ".tmp"
+            os.makedirs(os.path.dirname(SNAPSHOT_FILE), exist_ok=True)
+            with open(tmp, "w") as f:
+                json.dump(snapshot, f, indent=2)
+                f.write("\n")
+            os.replace(tmp, SNAPSHOT_FILE)
+        except Exception:
+            pass  # statusline must not crash Claude Code
+
+    # Build display string
+    parts = []
+
+    five_pct = five_h.get("used_percentage")
+    seven_pct = seven_d.get("used_percentage")
+    if five_pct is not None:
+        parts.append(f"5h:{five_pct:.0f}%")
+    if seven_pct is not None:
+        parts.append(f"7d:{seven_pct:.0f}%")
+
+    ctx_pct = ctx.get("used_percentage")
+    if ctx_pct is not None:
+        parts.append(f"ctx:{ctx_pct}%")
+
+    cost_usd = cost.get("total_cost_usd")
+    if cost_usd is not None and cost_usd > 0:
+        parts.append(f"${cost_usd:.2f}")
+
+    print(" | ".join(parts) if parts else "")
+
+
+if __name__ == "__main__":
+    main()
