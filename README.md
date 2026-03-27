@@ -7,21 +7,23 @@ Session pressure, weekly quota, context window, and cost estimate, all visible i
 ![Claude Code HUD](claude-code-hud-statusline.png)
 
 ```
-5h:34% | 7d:4% | ctx:57% | $160.16
+5h:34%(2h14m) | 7d:4%(4d11h) | ctx:57% | $160.16
 ```
 
 ## What each field means
 
 | Field | Meaning | Source |
 |-------|---------|--------|
-| `5h` | 5-hour rolling session window usage | Anthropic plan limit (authoritative) |
-| `7d` | 7-day weekly quota usage | Anthropic plan limit (authoritative) |
+| `5h` | 5-hour rolling session window usage + time until reset | Anthropic plan limit (authoritative) |
+| `7d` | 7-day weekly quota usage + time until reset | Anthropic plan limit (authoritative) |
 | `ctx` | Context window usage (how full the conversation memory is) | Claude Code runtime (local) |
 | `$` | Equivalent API cost estimate for this session (not an invoice) | Claude Code runtime (local) |
 
+The countdown in parentheses (e.g. `2h14m`, `4d11h`) shows time until that usage window resets. It disappears if the reset time is unavailable or already passed.
+
 **Notes:**
 - `5h` and `7d` are Anthropic-authoritative plan-limit values fetched from Anthropic's usage API by Claude Code. These are real quota consumption numbers, not estimates. Only available on Pro/Max plans.
-- `7d` may lag slightly behind the claude.ai app because Claude Code refreshes rate limit data periodically, not on every render.
+- `7d` may lag slightly behind the claude.ai app because Claude Code refreshes rate limit data periodically, not on every render. The countdown is computed locally from the last-received reset timestamp.
 - `ctx` and `$` are computed locally by Claude Code and update in real time on every turn. They are runtime values, not Anthropic-authoritative.
 - `$` shows what the session would cost at API rates. If you are on a Pro or Max subscription, you are not billed this amount.
 

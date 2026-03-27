@@ -80,15 +80,34 @@ def main():
         except Exception:
             pass  # statusline must not crash Claude Code
 
+    # Format a countdown from a resets_at unix timestamp
+    def countdown(resets_at):
+        if not resets_at:
+            return ""
+        import time
+        remaining = int(resets_at) - int(time.time())
+        if remaining <= 0:
+            return ""
+        days, remaining = divmod(remaining, 86400)
+        hours, remaining = divmod(remaining, 3600)
+        mins = remaining // 60
+        if days > 0:
+            return f"({days}d{hours}h)"
+        if hours > 0:
+            return f"({hours}h{mins:02d}m)"
+        return f"({mins}m)"
+
     # Build display string
     parts = []
 
     five_pct = five_h.get("used_percentage")
     seven_pct = seven_d.get("used_percentage")
     if five_pct is not None:
-        parts.append(f"5h:{five_pct:.0f}%")
+        cd = countdown(five_h.get("resets_at"))
+        parts.append(f"5h:{five_pct:.0f}%{cd}")
     if seven_pct is not None:
-        parts.append(f"7d:{seven_pct:.0f}%")
+        cd = countdown(seven_d.get("resets_at"))
+        parts.append(f"7d:{seven_pct:.0f}%{cd}")
 
     ctx_pct = ctx.get("used_percentage")
     if ctx_pct is not None:
