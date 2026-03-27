@@ -93,6 +93,18 @@ The snapshot looks like this:
   "cost": { "total_cost_usd": 160.16 }
 }
 
+## Tracking usage over time
+
+The HUD gives you live awareness. The snapshot gives you data you can accumulate.
+
+The repo does not include a historical analytics pipeline, but the snapshot provides the machine-readable state needed to build one. A few things you could do:
+
+- **Log snapshots to JSONL** after each session to track how your 5h and 7d budgets change over time
+- **Measure how much of your session window a specific workflow consumes** (e.g. "that refactor cost 12% of my 5h budget")
+- **Compare different setups or working styles** to see which ones burn through limits faster
+
+The measured values in the snapshot are facts. What you conclude about why usage is high or low is interpretation. The data gives you the foundation for both.
+
 ## Troubleshooting
 
 - **Nothing appears:** Verify the script path in `settings.json` is correct and the file is executable (`chmod +x`).
