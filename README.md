@@ -48,11 +48,11 @@ Then add to `~/.claude/settings.json`:
 }
 ```
 
-Restart Claude Code. The HUD appears on the next session start.
+Start a new Claude Code session. The `statusLine` config is read on session start, so the HUD appears once you open a new session. If you later edit the script itself, changes take effect immediately (no restart needed).
 
 ### Manual install
 
-Clone this repo or copy the `claude-code-hud` script to any location on your machine. Make it executable with `chmod +x`. Then add the `statusLine` config above, replacing the command path with the real absolute path to wherever you saved the script.
+Clone this repo or copy the `claude-code-hud` script to any location on your machine. Make it executable with `chmod +x`. Then add the `statusLine` config above, replacing the command path with the absolute path to wherever you saved the script.
 
 ## Optional: JSON snapshot
 
@@ -81,14 +81,15 @@ The snapshot contains the same rate limit values shown by `/usage`, plus context
 - **Nothing appears:** Verify the script path in `settings.json` is correct and the file is executable (`chmod +x`).
 - **No `5h` or `7d`:** These only appear on Pro/Max subscription plans. `ctx` and `$` work on any plan.
 - **`7d` seems stale:** Claude Code refreshes rate limit data periodically, not on every render. It may lag a few minutes behind the claude.ai app.
-- **HUD does not update after editing settings.json:** Restart Claude Code. The statusline config is read on session start.
+- **HUD does not appear after adding to settings.json:** Start a new Claude Code session. The `statusLine` config is read on session start.
 
 ## Compatibility
 
-- Tested on macOS and Linux (bash/zsh).
-- Windows users should run Claude Code inside WSL, or adapt the script path for their environment.
-- Requires Python 3.6+ (no external dependencies).
-- Requires Claude Code v2.1+ (statusline support).
+- **macOS / Linux:** Works as shown.
+- **WSL:** Same instructions work if Claude Code is running inside WSL.
+- **Native Windows:** Not tested. May require a Windows-style path and/or a wrapper script. If you get it working, PRs welcome.
+- Python 3.6+ (no external dependencies).
+- Claude Code v2.1+ (statusline support).
 
 ## License
 
