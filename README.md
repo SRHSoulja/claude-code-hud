@@ -6,10 +6,6 @@ Active model, session pressure, weekly quota, context window (with input/output 
 
 ![Claude Code HUD](claude-code-hud-statusline.png)
 
-```
-opusplan(sonnet.4-6) | 5h:41%(3h16m) | 7d:4%(6d10h) | ctx:61% in:140k out:22k | $181.22
-```
-
 ## What each field means
 
 | Field | Meaning | Source |
@@ -40,8 +36,6 @@ The countdown in parentheses (e.g. `3h16m`, `6d10h`) shows time until that usage
 mkdir -p ~/.claude
 curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/claude-code-hud -o ~/.claude/claude-code-hud
 chmod +x ~/.claude/claude-code-hud
-```
-
 Then add to `~/.claude/settings.json`:
 
 ```json
@@ -52,8 +46,6 @@ Then add to `~/.claude/settings.json`:
     "refreshInterval": 60
   }
 }
-```
-
 Start a new Claude Code session. The `statusLine` config is read on session start, so the HUD appears once you open a new session. If you later edit the script itself, changes take effect immediately (no restart needed).
 
 ### Manual install
@@ -78,8 +70,6 @@ Set the `CLAUDE_HUD_SNAPSHOT` environment variable:
 
 ```bash
 export CLAUDE_HUD_SNAPSHOT=~/.claude/usage-snapshot.json
-```
-
 Or add it to your Claude Code env settings:
 
 ```json
@@ -88,8 +78,6 @@ Or add it to your Claude Code env settings:
     "CLAUDE_HUD_SNAPSHOT": "~/.claude/usage-snapshot.json"
   }
 }
-```
-
 The snapshot looks like this:
 
 ```json
@@ -108,8 +96,6 @@ The snapshot looks like this:
   },
   "cost": { "total_cost_usd": 160.16 }
 }
-```
-
 ## Tracking usage over time
 
 The HUD gives you live awareness. The snapshot gives you data you can accumulate.
@@ -141,8 +127,6 @@ Claude Code runs statusline commands through bash on all platforms. On native Wi
 ```powershell
 mkdir "$env:USERPROFILE\.claude\claude-code-hud" -Force
 curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/claude-code-hud -o "$env:USERPROFILE\.claude\claude-code-hud\claude-code-hud"
-```
-
 **Add to `~/.claude/settings.json`:**
 
 ```json
@@ -153,8 +137,6 @@ curl -fsSL https://raw.githubusercontent.com/SRHSoulja/claude-code-hud/master/cl
     "refreshInterval": 60
   }
 }
-```
-
 Requires Python on PATH.
 
 ## Compatibility
