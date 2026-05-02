@@ -3,7 +3,8 @@
 Claude Code statusline HUD — live usage metrics in your terminal.
 
 Receives JSON on stdin from Claude Code's statusline system.
-Displays: session usage, weekly quota, context window, session cost.
+Displays: active model, session usage, weekly quota, context window
+         (with input/output token breakdown), and session cost.
 Optionally writes a JSON snapshot to disk for other tools to read.
 
 No dependencies beyond Python 3.6+.
@@ -12,6 +13,7 @@ No dependencies beyond Python 3.6+.
 import json
 import sys
 import os
+import time
 from datetime import datetime, timezone
 
 # Optional: write a JSON snapshot for other tools to consume.
@@ -20,6 +22,17 @@ from datetime import datetime, timezone
 SNAPSHOT_FILE = os.environ.get("CLAUDE_HUD_SNAPSHOT", "")
 if SNAPSHOT_FILE:
     SNAPSHOT_FILE = os.path.expanduser(SNAPSHOT_FILE)
+
+
+def fmt_tokens(n):
+    """Format token count compactly: 162345 → 162k, 1234567 → 1.2M"""
+    if n is None:
+        return None
+    if n >= 1_000_000:
+        return f"{n/1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n//1_000}k"
+    return str(n)
 
 
 def main():
@@ -84,7 +97,6 @@ def main():
     def countdown(resets_at):
         if not resets_at:
             return ""
-        import time
         remaining = int(resets_at) - int(time.time())
         if remaining <= 0:
             return ""
@@ -100,19 +112,45 @@ def main():
     # Build display string
     parts = []
 
+    # Model — prefer configured alias (e.g. opusplan) over raw execution model id.
+    # opusplan uses Opus for planning but Sonnet for execution; the alias makes
+    # the active mode visible while the parenthetical shows which model is running.
+    model_id = data.get("model", {}).get("id", "")
+    if model_id:
+        configured = ""
+        try:
+            settings_path = os.path.expanduser("~/.claude/settings.json")
+            with open(settings_path) as _f:
+                configured = json.load(_f).get("model", "")
+        except Exception:
+            pass
+        short = model_id.replace("claude-", "").replace("-", ".", 1)
+        if configured and configured != model_id:
+            parts.append(f"{configured}({short})")
+        else:
+            parts.append(short)
+
+    # Rate limits
     five_pct = five_h.get("used_percentage")
     seven_pct = seven_d.get("used_percentage")
     if five_pct is not None:
-        cd = countdown(five_h.get("resets_at"))
-        parts.append(f"5h:{five_pct:.0f}%{cd}")
+        parts.append(f"5h:{five_pct:.0f}%{countdown(five_h.get('resets_at'))}")
     if seven_pct is not None:
-        cd = countdown(seven_d.get("resets_at"))
-        parts.append(f"7d:{seven_pct:.0f}%{cd}")
+        parts.append(f"7d:{seven_pct:.0f}%{countdown(seven_d.get('resets_at'))}")
 
+    # Context window — percentage + input/output token breakdown
     ctx_pct = ctx.get("used_percentage")
+    in_tok = fmt_tokens(ctx.get("total_input_tokens"))
+    out_tok = fmt_tokens(ctx.get("total_output_tokens"))
     if ctx_pct is not None:
-        parts.append(f"ctx:{ctx_pct}%")
+        ctx_str = f"ctx:{ctx_pct}%"
+        if in_tok and out_tok:
+            ctx_str += f" in:{in_tok} out:{out_tok}"
+        elif in_tok:
+            ctx_str += f" in:{in_tok}"
+        parts.append(ctx_str)
 
+    # Cost
     cost_usd = cost.get("total_cost_usd")
     if cost_usd is not None and cost_usd > 0:
         parts.append(f"${cost_usd:.2f}")
