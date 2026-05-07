@@ -3,36 +3,152 @@
 Claude Code statusline HUD — live usage metrics in your terminal.
 
 Receives JSON on stdin from Claude Code's statusline system.
-Displays: active model, session usage, weekly quota, context window
-         (with input/output token breakdown), and session cost.
-Optionally writes a JSON snapshot to disk for other tools to read.
+Displays: model, session usage, weekly quota, context window, cost.
+
+Two-line stacked layout:
+  Line 1: 🤖 model | ⏳ 5h:N%(cd) | 📅 7d:N%(cd) | 🧠 N% in:X out:Y | 💲 N.NN
+  Line 2: <agent>     [bar 5h]      [bar 7d]      [bar ctx]
+
+Bars are tri-color fuel gauges: yellow up to 75% used, red beyond, green
+for the remaining capacity.
+
+Optional environment variables:
+  CLAUDE_HUD_SNAPSHOT   Absolute path to write a JSON usage snapshot
+  CLAUDE_HUD_NO_BARS    Set to "1" to disable line-2 bar gauges (single-line mode)
+  CLAUDE_HUD_ANCHOR     Override the line-2 anchor label (default: 📁 + folder name)
+  CLAUDE_HUD_DIRECTION  "remaining" (default) shows % left; "used" shows % consumed.
+                        Bar fill is the same in both modes — only the number flips.
 
 No dependencies beyond Python 3.6+.
 """
 
 import json
-import sys
 import os
-import time
+import re
+import sys
 from datetime import datetime, timezone
 
-# Optional: write a JSON snapshot for other tools to consume.
-# Set CLAUDE_HUD_SNAPSHOT to an absolute path to enable.
-# Example: export CLAUDE_HUD_SNAPSHOT=~/.claude/usage-snapshot.json
 SNAPSHOT_FILE = os.environ.get("CLAUDE_HUD_SNAPSHOT", "")
 if SNAPSHOT_FILE:
     SNAPSHOT_FILE = os.path.expanduser(SNAPSHOT_FILE)
 
+NO_BARS = os.environ.get("CLAUDE_HUD_NO_BARS", "") == "1"
+ANCHOR_OVERRIDE = os.environ.get("CLAUDE_HUD_ANCHOR", "")
+# "remaining" (default) shows % left, color ramps green→red as it depletes.
+# "used" shows % consumed, color ramps green→red as it fills.
+# Bar fill is identical in both modes; only the displayed number flips.
+DIRECTION = os.environ.get("CLAUDE_HUD_DIRECTION", "remaining").lower()
+
+# ANSI color codes
+R = "\033[0m"
+BOLD_RED = "\033[1;31m"
+BOLD_GRN = "\033[1;32m"
+BOLD_YEL = "\033[1;33m"
+BOLD_CYA = "\033[1;36m"
+BOLD_MAG = "\033[1;35m"
+YEL = "\033[33m"
+CYA = "\033[36m"
+
+# Strip ANSI codes for visible-length math
+ANSI_RE = re.compile(r'\033\[[0-9;]*m')
+
+# Wide chars (emoji) that render as 2 cells in modern terminals.
+# Each match adds +1 cell beyond Python's len().
+WIDE_RE = re.compile(
+    r'[\U0001F300-\U0001FAFF'   # most pictographic emoji (🤖 🧠 📅 💲)
+    r'⌀-⏿'             # misc technical (⏳ ⏱)
+    r'☀-➿'             # misc symbols + dingbats
+    r']'
+)
+
+
+def visible_len(s):
+    """Estimate visual cell width of a string (after ANSI strip)."""
+    stripped = ANSI_RE.sub('', s)
+    wide_count = len(WIDE_RE.findall(stripped))
+    return len(stripped) + wide_count
+
 
 def fmt_tokens(n):
-    """Format token count compactly: 162345 → 162k, 1234567 → 1.2M"""
     if n is None:
-        return None
-    if n >= 1_000_000:
-        return f"{n/1_000_000:.1f}M"
-    if n >= 1_000:
-        return f"{n//1_000}k"
+        return ""
+    if n >= 1000:
+        return f"{n/1000:.0f}k"
     return str(n)
+
+
+def countdown(resets_at):
+    if not resets_at:
+        return ""
+    import time
+    remaining = int(resets_at) - int(time.time())
+    if remaining <= 0:
+        return ""
+    days, remaining = divmod(remaining, 86400)
+    hours, remaining = divmod(remaining, 3600)
+    mins = remaining // 60
+    if days > 0:
+        return f"({days}d{hours}h)"
+    if hours > 0:
+        return f"({hours}h{mins:02d}m)"
+    return f"({mins}m)"
+
+
+def make_bar(used_pct, width=12, red_threshold=75):
+    """Tri-color fuel gauge: yellow up to red_threshold, red beyond, green free."""
+    if used_pct is None:
+        return ""
+    used_pct = max(0, min(100, used_pct))
+    used_cells = int(round((used_pct / 100.0) * width))
+    threshold_cells = int(round((red_threshold / 100.0) * width))
+    yellow_cells = min(used_cells, threshold_cells)
+    red_cells = max(0, used_cells - threshold_cells)
+    free_cells = width - used_cells
+    return (
+        f"{BOLD_YEL}{'█' * yellow_cells}{R}"
+        f"{BOLD_RED}{'█' * red_cells}{R}"
+        f"{BOLD_GRN}{'█' * free_cells}{R}"
+    )
+
+
+def write_snapshot(data, five_h, seven_d, ctx, cost):
+    if not SNAPSHOT_FILE:
+        return
+    snapshot = {
+        "source": "claude-code-hud",
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "session_id": data.get("session_id", ""),
+        "model": data.get("model", {}).get("id", ""),
+        "rate_limits": {
+            "five_hour": {
+                "used_percentage": five_h.get("used_percentage"),
+                "resets_at": five_h.get("resets_at"),
+            } if five_h else None,
+            "seven_day": {
+                "used_percentage": seven_d.get("used_percentage"),
+                "resets_at": seven_d.get("resets_at"),
+            } if seven_d else None,
+        },
+        "context_window": {
+            "used_percentage": ctx.get("used_percentage"),
+            "total_input_tokens": ctx.get("total_input_tokens"),
+            "total_output_tokens": ctx.get("total_output_tokens"),
+            "context_window_size": ctx.get("context_window_size"),
+        },
+        "cost": {
+            "total_cost_usd": cost.get("total_cost_usd"),
+            "total_duration_ms": cost.get("total_duration_ms"),
+        },
+    }
+    try:
+        tmp = SNAPSHOT_FILE + ".tmp"
+        os.makedirs(os.path.dirname(SNAPSHOT_FILE), exist_ok=True)
+        with open(tmp, "w") as f:
+            json.dump(snapshot, f, indent=2)
+            f.write("\n")
+        os.replace(tmp, SNAPSHOT_FILE)
+    except Exception:
+        pass  # statusline must not crash Claude Code
 
 
 def main():
@@ -46,75 +162,21 @@ def main():
         print("")
         return
 
-    # Extract rate limits (Anthropic-authoritative, Pro/Max plans only)
     rate = data.get("rate_limits", {})
     five_h = rate.get("five_hour", {})
     seven_d = rate.get("seven_day", {})
-
-    # Extract context window and cost
     ctx = data.get("context_window", {})
     cost = data.get("cost", {})
 
-    # Write snapshot if configured
-    if SNAPSHOT_FILE:
-        snapshot = {
-            "source": "claude-code-hud",
-            "captured_at": datetime.now(timezone.utc).isoformat(),
-            "session_id": data.get("session_id", ""),
-            "model": data.get("model", {}).get("id", ""),
-            "rate_limits": {
-                "five_hour": {
-                    "used_percentage": five_h.get("used_percentage"),
-                    "resets_at": five_h.get("resets_at"),
-                } if five_h else None,
-                "seven_day": {
-                    "used_percentage": seven_d.get("used_percentage"),
-                    "resets_at": seven_d.get("resets_at"),
-                } if seven_d else None,
-            },
-            "context_window": {
-                "used_percentage": ctx.get("used_percentage"),
-                "total_input_tokens": ctx.get("total_input_tokens"),
-                "total_output_tokens": ctx.get("total_output_tokens"),
-                "context_window_size": ctx.get("context_window_size"),
-            },
-            "cost": {
-                "total_cost_usd": cost.get("total_cost_usd"),
-                "total_duration_ms": cost.get("total_duration_ms"),
-            },
-        }
-        try:
-            tmp = SNAPSHOT_FILE + ".tmp"
-            os.makedirs(os.path.dirname(SNAPSHOT_FILE), exist_ok=True)
-            with open(tmp, "w") as f:
-                json.dump(snapshot, f, indent=2)
-                f.write("\n")
-            os.replace(tmp, SNAPSHOT_FILE)
-        except Exception:
-            pass  # statusline must not crash Claude Code
+    write_snapshot(data, five_h, seven_d, ctx, cost)
 
-    # Format a countdown from a resets_at unix timestamp
-    def countdown(resets_at):
-        if not resets_at:
-            return ""
-        remaining = int(resets_at) - int(time.time())
-        if remaining <= 0:
-            return ""
-        days, remaining = divmod(remaining, 86400)
-        hours, remaining = divmod(remaining, 3600)
-        mins = remaining // 60
-        if days > 0:
-            return f"({days}d{hours}h)"
-        if hours > 0:
-            return f"({hours}h{mins:02d}m)"
-        return f"({mins}m)"
-
-    # Build display string
+    # Each part: (text, bar_text_or_None) — bar lines up under text on row 2
     parts = []
 
-    # Model — prefer configured alias (e.g. opusplan) over raw execution model id.
-    # opusplan uses Opus for planning but Sonnet for execution; the alias makes
-    # the active mode visible while the parenthetical shows which model is running.
+    # Model — 🤖 + magenta name. Prefer configured alias (e.g. opusplan) over
+    # raw execution model id. opusplan uses Opus for planning + Sonnet for
+    # execution; the alias makes the active mode visible while the parenthetical
+    # shows which model is running this turn.
     model_id = data.get("model", {}).get("id", "")
     if model_id:
         configured = ""
@@ -126,36 +188,113 @@ def main():
             pass
         short = model_id.replace("claude-", "").replace("-", ".", 1)
         if configured and configured != model_id:
-            parts.append(f"{configured}({short})")
+            parts.append((f"🤖{BOLD_MAG}{configured}{R}({BOLD_CYA}{short}{R})", None))
         else:
-            parts.append(short)
+            parts.append((f"🤖{BOLD_MAG}{short}{R}", None))
 
-    # Rate limits
+    # Claude Code appends "[1m]" to 1M-native models on the rendered statusline
+    cc_render_pad = 4 if ("opus-4-7" in model_id or "-1m" in model_id) else 0
+
+    # Compute display % per direction. Bar always uses USED %, label varies.
+    def label_pct(used_pct):
+        if used_pct is None:
+            return None
+        if DIRECTION == "used":
+            return used_pct
+        return max(0, 100 - used_pct)
+
+    def label_color(displayed_pct):
+        # Green when "good", red when "bad". For remaining: high=good. For used: low=good.
+        if displayed_pct is None:
+            return BOLD_YEL
+        if DIRECTION == "used":
+            return BOLD_GRN if displayed_pct < 60 else (BOLD_YEL if displayed_pct < 85 else BOLD_RED)
+        return BOLD_GRN if displayed_pct > 40 else (BOLD_YEL if displayed_pct > 15 else BOLD_RED)
+
+    # 5h rate limit
     five_pct = five_h.get("used_percentage")
-    seven_pct = seven_d.get("used_percentage")
     if five_pct is not None:
-        parts.append(f"5h:{five_pct:.0f}%{countdown(five_h.get('resets_at'))}")
-    if seven_pct is not None:
-        parts.append(f"7d:{seven_pct:.0f}%{countdown(seven_d.get('resets_at'))}")
+        d = label_pct(five_pct)
+        col = label_color(d)
+        cd = countdown(five_h.get("resets_at"))
+        text = f"⏳{col}5h:{d:.0f}%{R}{YEL}{cd}{R}"
+        parts.append((text, make_bar(five_pct)))
 
-    # Context window — percentage + input/output token breakdown
+    # 7d rate limit
+    seven_pct = seven_d.get("used_percentage")
+    if seven_pct is not None:
+        d = label_pct(seven_pct)
+        col = label_color(d)
+        cd = countdown(seven_d.get("resets_at"))
+        text = f"📅{col}7d:{d:.0f}%{R}{YEL}{cd}{R}"
+        parts.append((text, make_bar(seven_pct)))
+
+    # Context window
     ctx_pct = ctx.get("used_percentage")
     in_tok = fmt_tokens(ctx.get("total_input_tokens"))
     out_tok = fmt_tokens(ctx.get("total_output_tokens"))
     if ctx_pct is not None:
-        ctx_str = f"ctx:{ctx_pct}%"
+        d = label_pct(ctx_pct)
+        col = label_color(d)
+        ctx_str = f"🧠{col}{d:.0f}%{R}"
         if in_tok and out_tok:
-            ctx_str += f" in:{in_tok} out:{out_tok}"
+            ctx_str += f" {CYA}in:{in_tok} out:{out_tok}{R}"
         elif in_tok:
-            ctx_str += f" in:{in_tok}"
-        parts.append(ctx_str)
+            ctx_str += f" {CYA}in:{in_tok}{R}"
+        parts.append((ctx_str, make_bar(ctx_pct)))
 
     # Cost
     cost_usd = cost.get("total_cost_usd")
     if cost_usd is not None and cost_usd > 0:
-        parts.append(f"${cost_usd:.2f}")
+        parts.append((f"💲{BOLD_GRN}{cost_usd:.2f}{R}", None))
 
-    print(" | ".join(parts) if parts else "")
+    if not parts:
+        print("")
+        return
+
+    line1 = " | ".join(t for t, _ in parts)
+
+    # Single-line mode (CLAUDE_HUD_NO_BARS=1)
+    if NO_BARS or not any(b is not None for _, b in parts):
+        print(line1)
+        return
+
+    # Build line 2 — bars left-aligned under their corresponding text segment.
+    # CC strips leading whitespace from secondary lines, so anchor with the
+    # current folder name under the model slot.
+    if ANCHOR_OVERRIDE:
+        anchor_label = ANCHOR_OVERRIDE
+    else:
+        cwd = data.get("workspace", {}).get("current_dir", "") or os.getcwd()
+        folder = os.path.basename(cwd.rstrip("/")) or cwd
+        anchor_label = f"📁{folder}"
+
+    line2_segs = []
+    for idx, (text, bar) in enumerate(parts):
+        target = visible_len(text)
+        if idx == 0:
+            target += cc_render_pad
+            anchor = f"{BOLD_MAG}{anchor_label}{R}"
+            pad = max(0, target - visible_len(anchor_label))
+            line2_segs.append(anchor + " " * pad)
+            continue
+        # Per-slot right padding tweaks (calibrated against live render):
+        # ⏳ 5h slot: +1 cell  → shifts 7d (and ctx) right by 1
+        # 📅 7d slot: +6 cells → shifts ctx an additional 6 (total +7 for ctx)
+        extra_right = 0
+        if "⏳" in text:
+            extra_right = 1
+        elif "📅" in text:
+            extra_right = 6
+        if bar is None:
+            line2_segs.append(" " * (target + extra_right))
+        else:
+            bar_vis = visible_len(bar)
+            pad_right = max(0, target - bar_vis) + extra_right
+            line2_segs.append(bar + " " * pad_right)
+
+    line2 = "   ".join(line2_segs)
+    print(line1 + "\n" + line2)
 
 
 if __name__ == "__main__":
