@@ -24,11 +24,12 @@ By default, numbers show **% remaining**, so the green portion of each bar track
 
 | Field | Meaning | Source |
 |-------|---------|--------|
-| `🤖 model` | Active model (e.g. `opus.4-7`) | Claude Code runtime |
+| `🤖 model` | Active model (e.g. `opus.4-7`). Shows `alias(execution-model)` if a configured alias differs from the runtime model — e.g. `opusplan(sonnet.4-6)` means opusplan mode is set, Sonnet is executing this turn. | Claude Code runtime + `~/.claude/settings.json` |
 | `⏳ 5h` | 5-hour rolling session window % remaining + time until reset | Anthropic plan limit (authoritative) |
 | `📅 7d` | 7-day weekly quota % remaining + time until reset | Anthropic plan limit (authoritative) |
 | `🧠 ctx` | Context window % remaining + token in/out counts | Claude Code runtime (local) |
 | `💲 cost` | Equivalent API cost estimate for this session (not an invoice) | Claude Code runtime (local) |
+| `📁 folder` | Working directory name (line 2 anchor). Override via `CLAUDE_HUD_ANCHOR`. | `workspace.current_dir` from Claude Code |
 
 The countdown in parentheses (e.g. `20m`, `9h10m`) shows time until that usage window resets. It disappears if the reset time is unavailable or already passed.
 
